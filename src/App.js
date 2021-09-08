@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { CssBaseline, Grid } from '@material-ui/core';
 
 
-import { getLocationData } from './api';
+import { getLocationData, getWeatherData } from './api';
 import Header from './components/Header/Header';
 import List from './components/List/List';
 import Map from './components/Map/Map';
@@ -10,8 +10,18 @@ import Map from './components/Map/Map';
 const App = () => {
 
     const [places, setPlaces ] = useState([]);
+    const [weatherData, setWeatherData ] = useState([]);
+
+    const [filteredPlaces, setFilteredPlaces] = useState([]);
+
+    const [childClicked, setChildClicked] = useState(null);
+
     const [coordinates, setCoordinates ] = useState({});
     const [bounds, setBounds ] = useState({});
+
+    const [isLoading, setIsLoading ] = useState(false);
+    const [type, setType ] = useState('restaurants');
+    const [rating, setRating ] = useState('0');
 
     useEffect(() => {
         navigator.geolocation.getCurrentPosition(( { coords: {latitude, longitude}}) => {
@@ -19,29 +29,53 @@ const App = () => {
         })
     }, []);
 
+    useEffect(() => {
+        const filteredPlaces = places.filter( (place) => place.rating > rating)
+    
+        setFilteredPlaces(filteredPlaces)
+    }, [rating]);
+
 
     useEffect( () => {
-        getLocationData( bounds.sw, bounds.ne)
+        if(bounds.sw && bounds.ne) {
+        setIsLoading(true);
+        
+        getWeatherData( coordinates.lat, coordinates.lng)
+            .then( (data) => setWeatherData(data))
+
+        getLocationData( type, bounds.sw, bounds.ne)
             .then ((data) => {
-                setPlaces(data);
+                setPlaces(data?.filter((place) => place.name && place.num_rewiews > 0));
+                setFilteredPlaces([]);
+                setIsLoading(false);
             })
-    }, [coordinates, bounds]);
+        }
+    }, [type, bounds]);
     
 
     return (
         <>
             <CssBaseline />
-            <Header />
+            <Header setCoordinates= {setCoordinates} />
             <Grid container spacing={3} style = {{ width: '100%' }}>
                 <Grid item xs={12} md={4}>
-                    <List places = {places} />
+                    <List 
+                        places = {filteredPlaces.length ? filteredPlaces : places} 
+                        childClicked={childClicked}
+                        isLoading= {isLoading}
+                        type={type}
+                        setType= {setType}
+                        setRating= {setRating}
+                    />
                 </Grid>
                 <Grid item xs={12} md={8}>
                     <Map
                         setBounds = {setBounds}
                         setCoordinates = {setCoordinates}
                         coordinates = {coordinates}
-                        places = {places}
+                        places = {filteredPlaces.length ? filteredPlaces : places}
+                        setChildClicked={setChildClicked}
+                        weatherData = {weatherData}
                      />
                 </Grid>
             </Grid>
